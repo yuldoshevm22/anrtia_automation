@@ -1,0 +1,323 @@
+{
+  "name": "Выгрузка с Superset - Партии и остатки -> Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Получение токена по логину и паролю",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "d80a2986-ac79-4682-beb4-046eec10dc1c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Получение дополнительных данных (данные сессии) для подключения",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        288,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "47258f0f-5bd2-4c1a-a99a-74149a6743f1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Датасет 145 [E_COM]_partii_и_ostatki\nдашборд 185, чарт 463",
+        "height": 240,
+        "width": 260,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        576,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "71c56158-cfb0-4c39-ad6c-3a50cbe958fc",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Запись в Supabase:\nновые строки добавляются, изменившиеся обновляются,\nисчезнувшие из выгрузки удаляются",
+        "height": 240,
+        "width": 420,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1088,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "9f5d9eef-c4e7-4542-a49f-dad21be62ae9",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        80
+      ],
+      "id": "747a53a1-c6cf-47ab-b1ea-65d4b178ff0f",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */10 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        256
+      ],
+      "id": "9e380219-058c-496e-b8cb-9f929dfa5463",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        80,
+        80
+      ],
+      "id": "e84a18e1-c6d8-458f-86ba-3ed972d191c9",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        352,
+        80
+      ],
+      "id": "74749dc0-8904-44b0-85bb-1b76220c0207",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/463/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 145, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"batch_id\",\n        \"batch_number\",\n        \"batch_barcode\",\n        \"cell_key\",\n        \"sku_id\",\n        \"sku_title\",\n        \"invoice_id\",\n        \"invoice_date\",\n        \"gtd_number\",\n        \"gtd_kind\",\n        \"gtd_date\",\n        \"expiry_date\",\n        \"is_return\",\n        \"stock_status\",\n        \"zone_title\",\n        \"zone_purpose\",\n        \"zone_stock_type\",\n        \"amount\",\n        \"amount_pending\",\n        \"volume_m3\",\n        \"query_day\"\n      ],\n      \"orderby\": [],\n      \"row_limit\": 200000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"results\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        656,
+        80
+      ],
+      "id": "5484943f-f504-43cd-8fb3-a1c33c7159d4",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\n// Датасет 145 [E_COM]_partii_и_ostatki -> строки для Supabase\n\nconst raw = $('HTTP Request1').first().json.data;\n\n// длинные числовые id (batch_id, sku_id, invoice_id) страхуем от потери точности\nconst safe = raw.replace(/\"(batch_id|sku_id|invoice_id)\"\\s*:\\s*(-?\\d{16,})/g, '\"$1\":\"$2\"');\nconst rows = JSON.parse(safe).result[0].data;\n\nif (rows.length === 0) throw new Error('Superset вернул 0 строк');\nif (rows.length >= 200000) throw new Error('Упёрлись в row_limit — данные обрезаны');\n\nconst txt  = v => (v === undefined || v === '' || v === null ? null : String(v));\nconst num  = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };\nconst dec  = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };\nconst bool = v => (v === null || v === undefined || v === '' ? null : Boolean(v));\n// даты приходят как epoch в миллисекундах\nconst toDate = v => {\n  if (v === null || v === undefined || v === '') return null;\n  const n = Number(v);\n  if (Number.isFinite(n)) return new Date(Math.round(n)).toISOString().slice(0, 10);\n  return String(v).slice(0, 10);\n};\n\n// Ключ: партия + ячейка. Одна партия может лежать в нескольких ячейках.\n// Партии без ячейки ('нет на складе') получают NOCELL.\nconst acc = new Map();\n\nfor (const r of rows) {\n  const batchId = txt(r['batch_id']);\n  if (!batchId) continue;\n\n  const cellKey = txt(r['cell_key']);\n  const key     = `${batchId}|${cellKey ?? 'NOCELL'}`;\n  const cur     = acc.get(key);\n\n  if (cur) {\n    // страховка: если вдруг придут две строки на одну партию в одной ячейке\n    cur.amount         += num(r['amount']);\n    cur.amount_pending += num(r['amount_pending']);\n    cur.volume_m3       = (cur.volume_m3 ?? 0) + (dec(r['volume_m3']) ?? 0);\n    cur.rows_merged    += 1;\n    continue;\n  }\n\n  acc.set(key, {\n    row_key:         key,\n    batch_id:        batchId,\n    batch_number:    txt(r['batch_number']),\n    batch_barcode:   txt(r['batch_barcode']),\n    cell_key:        cellKey,\n    sku_id:          txt(r['sku_id']),\n    sku_title:       txt(r['sku_title']),\n    invoice_id:      txt(r['invoice_id']),\n    invoice_date:    toDate(r['invoice_date']),\n    gtd_number:      txt(r['gtd_number']),\n    gtd_kind:        txt(r['gtd_kind']),\n    gtd_date:        toDate(r['gtd_date']),\n    expiry_date:     toDate(r['expiry_date']),\n    is_return:       bool(r['is_return']),\n    stock_status:    txt(r['stock_status']),\n    zone_title:      txt(r['zone_title']),\n    zone_purpose:    txt(r['zone_purpose']),\n    zone_stock_type: txt(r['zone_stock_type']),\n    amount:          num(r['amount']),\n    amount_pending:  num(r['amount_pending']),\n    volume_m3:       dec(r['volume_m3']),\n    rows_merged:     1,\n    query_day:       toDate(r['query_day']),\n  });\n}\n\nreturn [{ json: { rows: [...acc.values()] } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        80
+      ],
+      "id": "0097da14-2677-4a34-aff1-bf7b1b9aed7b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with src as (\n  select\n    r->>'row_key'         as row_key,\n    r->>'batch_id'        as batch_id,\n    r->>'batch_number'    as batch_number,\n    r->>'batch_barcode'   as batch_barcode,\n    r->>'cell_key'        as cell_key,\n    r->>'sku_id'          as sku_id,\n    r->>'sku_title'       as sku_title,\n    r->>'invoice_id'      as invoice_id,\n    nullif(r->>'invoice_date','')::date as invoice_date,\n    r->>'gtd_number'      as gtd_number,\n    r->>'gtd_kind'        as gtd_kind,\n    nullif(r->>'gtd_date','')::date     as gtd_date,\n    nullif(r->>'expiry_date','')::date  as expiry_date,\n    nullif(r->>'is_return','')::boolean as is_return,\n    r->>'stock_status'    as stock_status,\n    r->>'zone_title'      as zone_title,\n    r->>'zone_purpose'    as zone_purpose,\n    r->>'zone_stock_type' as zone_stock_type,\n    coalesce(nullif(r->>'amount','')::int, 0)         as amount,\n    coalesce(nullif(r->>'amount_pending','')::int, 0) as amount_pending,\n    nullif(r->>'volume_m3','')::numeric               as volume_m3,\n    coalesce(nullif(r->>'rows_merged','')::smallint, 1) as rows_merged,\n    nullif(r->>'query_day','')::date  as query_day,\n    md5(concat_ws('|',\n          coalesce(r->>'cell_key',''), coalesce(r->>'stock_status',''),\n          coalesce(r->>'zone_title',''), coalesce(r->>'zone_purpose',''),\n          coalesce(r->>'zone_stock_type',''), coalesce(r->>'amount','0'),\n          coalesce(r->>'amount_pending','0'), coalesce(r->>'volume_m3',''),\n          coalesce(r->>'expiry_date',''), coalesce(r->>'gtd_number',''),\n          coalesce(r->>'sku_title',''), coalesce(r->>'batch_number',''))) as payload_hash\n  from jsonb_array_elements($1::jsonb) as r\n),\ngone as (\n  delete from public.ecom_batch_stock t\n   where not exists (select 1 from src s where s.row_key = t.row_key)\n)\ninsert into public.ecom_batch_stock as t\n  (row_key, batch_id, batch_number, batch_barcode, cell_key, sku_id, sku_title,\n   invoice_id, invoice_date, gtd_number, gtd_kind, gtd_date, expiry_date, is_return,\n   stock_status, zone_title, zone_purpose, zone_stock_type,\n   amount, amount_pending, volume_m3, rows_merged, query_day, payload_hash)\nselect\n   row_key, batch_id, batch_number, batch_barcode, cell_key, sku_id, sku_title,\n   invoice_id, invoice_date, gtd_number, gtd_kind, gtd_date, expiry_date, is_return,\n   stock_status, zone_title, zone_purpose, zone_stock_type,\n   amount, amount_pending, volume_m3, rows_merged, query_day, payload_hash\nfrom src\non conflict (row_key) do update set\n  batch_number    = excluded.batch_number,\n  batch_barcode   = excluded.batch_barcode,\n  cell_key        = excluded.cell_key,\n  sku_title       = excluded.sku_title,\n  invoice_id      = excluded.invoice_id,\n  invoice_date    = excluded.invoice_date,\n  gtd_number      = excluded.gtd_number,\n  gtd_kind        = excluded.gtd_kind,\n  gtd_date        = excluded.gtd_date,\n  expiry_date     = excluded.expiry_date,\n  is_return       = excluded.is_return,\n  stock_status    = excluded.stock_status,\n  zone_title      = excluded.zone_title,\n  zone_purpose    = excluded.zone_purpose,\n  zone_stock_type = excluded.zone_stock_type,\n  amount          = excluded.amount,\n  amount_pending  = excluded.amount_pending,\n  volume_m3       = excluded.volume_m3,\n  rows_merged     = excluded.rows_merged,\n  query_day       = excluded.query_day,\n  payload_hash    = excluded.payload_hash,\n  changed_at      = now()\nwhere t.payload_hash is distinct from excluded.payload_hash;",
+        "options": {
+          "queryReplacement": "==={{ JSON.stringify($json.rows) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1216,
+        80
+      ],
+      "id": "94b21e89-ce64-4991-bc82-902cb6d9dc4b",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "RKvbrXYRsA9k8RkK",
+          "name": "Кристина коммерция"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1ab0fc54-a5c4-40c1-b3a6-a1492aaf7b33",
+  "meta": {
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "5AYIqCM83NWn9sHk",
+  "tags": []
+}
