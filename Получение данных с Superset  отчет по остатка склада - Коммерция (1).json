@@ -1,0 +1,522 @@
+{
+  "name": "Получение данных с Superset  отчет по остатка склада - Коммерция",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c4bae2b6-3b15-45b2-ad36-96007c04a5d3",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        0
+      ],
+      "id": "8843b8cf-5356-4bde-969c-291ca69d0c71",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        0
+      ],
+      "id": "3fc7adb1-fb1e-4f65-b24e-c278312ea88f",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 59 23 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        176
+      ],
+      "id": "816e50d3-7c00-425b-95ee-c72cf7ce436f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/42/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 6, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"original_invoice_number\",\n        \"zone_prefix\",\n        \"cell_barcode\",\n        \"barcode\",\n        \"SKU WMS ID\",\n        \"name\",\n        \"barcodes\",\n        \"width\",\n        \"length\",\n        \"height\",\n        \"amount_available\",\n        \"amount_in_location\",\n        \"amount_incident\",\n        {\n          \"label\": \"ОСГ\",\n          \"expressionType\": \"SQL\",\n          \"sqlExpression\": \"ОСГ\"\n        },\n        \"partner_id\",\n        \"warehouse_id\"\n      ],\n      \"row_limit\": 100000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"results\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        0
+      ],
+      "id": "4972dd8e-d5f3-4892-90f2-4b3ca68c550d",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\nconst snapshot = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' — дата запуска\n\nreturn [{ json: { snapshot, rows: rows.map(r => ({\n  original_invoice_number: r[\"original_invoice_number\"],\n  zone_prefix:             r[\"zone_prefix\"] ?? null,\n  cell_barcode:            r[\"cell_barcode\"],\n  barcode:                 r[\"barcode\"] ?? null,\n  sku_wms_id:              String(r[\"SKU WMS ID\"]),\n  name:                    r[\"name\"] ?? null,\n  barcodes:                r[\"barcodes\"] ?? null,\n  width:                   r[\"width\"] ?? null,\n  length:                  r[\"length\"] ?? null,\n  height:                  r[\"height\"] ?? null,\n  amount_available:        r[\"amount_available\"] ?? null,\n  amount_in_location:      r[\"amount_in_location\"] ?? null,\n  amount_incident:         r[\"amount_incident\"] ?? null,\n  osg:                     r[\"ОСГ\"] ?? null,\n  partner_id:              r[\"partner_id\"] ?? null,\n  warehouse_id:            r[\"warehouse_id\"] ?? null,\n})) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "5168760f-8911-41d7-b4d4-32ed87482f8f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.stock_invoice_sku_cell\n  (snapshot_date, original_invoice_number, zone_prefix, cell_barcode, barcode, sku_wms_id, name,\n   barcodes, width, length, height, amount_available, amount_in_location,\n   amount_incident, osg, partner_id, warehouse_id)\nselect\n  ($2)::date,\n  r->>'original_invoice_number',\n  r->>'zone_prefix',\n  r->>'cell_barcode',\n  r->>'barcode',\n  r->>'sku_wms_id',\n  r->>'name',\n  r->>'barcodes',\n  nullif(r->>'width','')::int,\n  nullif(r->>'length','')::int,\n  nullif(r->>'height','')::int,\n  nullif(r->>'amount_available','')::int,\n  nullif(r->>'amount_in_location','')::int,\n  nullif(r->>'amount_incident','')::int,\n  r->>'osg',\n  nullif(r->>'partner_id','')::int,\n  nullif(r->>'warehouse_id','')::int\nfrom jsonb_array_elements($1::jsonb) as r\non conflict (snapshot_date, original_invoice_number, cell_barcode, sku_wms_id, barcode, osg) do nothing;",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json.rows) }}\n={{ $json.snapshot }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1328,
+        0
+      ],
+      "id": "ba346610-c118-4f90-9fbe-a79e41cb6b68",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "RKvbrXYRsA9k8RkK",
+          "name": "Кристина коммерция"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.rows.map(row => ({\n  json: row\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        224
+      ],
+      "id": "6b45260f-94df-4973-b79e-518186446932",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1TV84nQw9csJpHp2-EaHEX_4BwTrz0H1d1kqRlCS_f8U",
+          "mode": "list",
+          "cachedResultName": "Отчет по остаткам склада",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TV84nQw9csJpHp2-EaHEX_4BwTrz0H1d1kqRlCS_f8U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TV84nQw9csJpHp2-EaHEX_4BwTrz0H1d1kqRlCS_f8U/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "original_invoice_number": "={{ $json.original_invoice_number }}",
+            "zone_prefix": "={{ $json.zone_prefix }}",
+            "cell_barcode": "={{ $json.cell_barcode }}",
+            "barcode": "={{ $json.barcode }}",
+            "sku_wms_id": "={{ $json.sku_wms_id }}",
+            "name": "={{ $json.name }}",
+            "barcodes": "={{ $json.barcodes }}",
+            "width": "={{ $json.width }}",
+            "length": "={{ $json.length }}",
+            "height": "={{ $json.height }}",
+            "amount_available": "={{ $json.rows[0].amount_available }}",
+            "amount_in_location": "={{ $json.amount_in_location }}",
+            "amount_incident": "={{ $json.amount_incident }}",
+            "osg": "={{ $json.osg }}",
+            "partner_id": "={{ $json.partner_id }}",
+            "warehouse_id": "={{ $json.warehouse_id }}"
+          },
+          "matchingColumns": [
+            "original_invoice_number"
+          ],
+          "schema": [
+            {
+              "id": "original_invoice_number",
+              "displayName": "original_invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "zone_prefix",
+              "displayName": "zone_prefix",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "cell_barcode",
+              "displayName": "cell_barcode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "barcode",
+              "displayName": "barcode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sku_wms_id",
+              "displayName": "sku_wms_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "barcodes",
+              "displayName": "barcodes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "width",
+              "displayName": "width",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "length",
+              "displayName": "length",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "height",
+              "displayName": "height",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount_available",
+              "displayName": "amount_available",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount_in_location",
+              "displayName": "amount_in_location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount_incident",
+              "displayName": "amount_incident",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "osg",
+              "displayName": "osg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "partner_id",
+              "displayName": "partner_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "warehouse_id",
+              "displayName": "warehouse_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1360,
+        224
+      ],
+      "id": "c40bf9ed-f700-4e4e-ac58-1dea9d99ddad",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "YF9QzZschT9QHtl4",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "0a99a64a-1c9d-49b5-8e4f-486d1aab1108",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "tBWJlhtSbkVUgOxa",
+  "tags": []
+}
