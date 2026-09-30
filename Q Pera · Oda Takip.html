@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q Pera · Oda Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+:root{
+  --bg:#EDF0F2; --surface:#FFFFFF; --ink:#15212C; --muted:#5E6B76; --line:#D5DCE1; --line2:#E6EAED;
+  --occ:#1E5B74; --occ-ink:#FFFFFF; --occ-hover:#174A5F; --mark:#FFF1A6; --mark-ink:#15212C;
+  --wknd:#F5F7F8; --today:#C9861A; --danger:#B3261E; --focus:#2F7FA3;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F161C; --surface:#17212A; --ink:#E6ECEF; --muted:#93A1AC; --line:#2A3742; --line2:#222D36;
+    --occ:#2F86A8; --occ-ink:#FFFFFF; --occ-hover:#3A97BB; --mark:#4A4212; --mark-ink:#F4EBC0;
+    --wknd:#1B262F; --today:#E0A33A; --danger:#F2867E; --focus:#5BB0D3; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F161C; --surface:#17212A; --ink:#E6ECEF; --muted:#93A1AC; --line:#2A3742; --line2:#222D36;
+  --occ:#2F86A8; --occ-ink:#FFFFFF; --occ-hover:#3A97BB; --mark:#4A4212; --mark-ink:#F4EBC0;
+  --wknd:#1B262F; --today:#E0A33A; --danger:#F2867E; --focus:#5BB0D3; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Onest,"Segoe UI",Roboto,system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.wrap{max-width:1500px;margin:0 auto;padding:16px clamp(12px,3vw,28px) 40px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:14px}
+.brand{display:flex;flex-direction:column;margin-right:auto}
+.brand h1{font-size:22px;line-height:1.2;margin:0;font-weight:700;letter-spacing:-.01em}
+.brand small{color:var(--muted);font-size:13px}
+.month{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+.month b{min-width:150px;text-align:center;font-weight:600}
+.ibtn{border:0;background:transparent;border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:18px;line-height:1}
+.ibtn:hover{background:var(--line2)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--occ);border-color:var(--occ);color:var(--occ-ink)}
+.btn.primary:hover{background:var(--occ-hover)}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{border:0;background:transparent;padding:10px 16px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--occ)}
+
+/* chart */
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:calc(100vh - 190px);max-width:100%}
+.grid{display:grid;grid-template-columns:76px repeat(var(--n),minmax(42px,1fr));min-width:calc(76px + var(--n) * 42px);position:relative}
+.h{position:sticky;top:0;z-index:4;background:var(--surface);border-bottom:1px solid var(--line);text-align:center;padding:6px 0 5px;font-size:12px;color:var(--muted);line-height:1.15}
+.h b{display:block;font-size:15px;color:var(--ink);font-weight:600}
+.h.wk{background:var(--wknd)}
+.h.today b{color:var(--today)}
+.h.corner{left:0;z-index:6;text-align:left;padding-left:12px;display:flex;align-items:end}
+.rn{position:sticky;left:0;z-index:3;background:var(--surface);border-right:1px solid var(--line);border-bottom:1px solid var(--line2);display:flex;align-items:center;padding-left:12px;font-weight:600;height:46px}
+.rn.floor{border-top:1px solid var(--line)}
+.c{border:0;border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);background:transparent;height:46px;cursor:pointer;padding:0}
+.c.wk{background:var(--wknd)}
+.c.floor{border-top:1px solid var(--line)}
+.c:hover{background:var(--line2)}
+.c.today{box-shadow:inset 2px 0 0 var(--today)}
+.bar{z-index:2;margin:7px 3px;border:0;border-radius:7px;background:var(--occ);color:var(--occ-ink);font-size:13px;font-weight:500;padding:0 9px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;min-width:0}
+.bar:hover{background:var(--occ-hover)}
+.bar span{overflow:hidden;text-overflow:ellipsis}
+.bar i{font-style:normal;opacity:.75;font-size:12px}
+.bar.cl{border-top-left-radius:0;border-bottom-left-radius:0}
+.bar.cr{border-top-right-radius:0;border-bottom-right-radius:0}
+.foot{position:sticky;bottom:0;z-index:4;background:var(--surface);border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted);padding:6px 0}
+.foot.corner{left:0;z-index:6;text-align:left;padding-left:12px}
+.foot b{color:var(--ink);font-weight:600}
+.hint{color:var(--muted);font-size:13px;margin:10px 2px 0}
+
+/* day sheet */
+.dayhead{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:12px}
+.dayhead input[type=date]{border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--surface)}
+.dayhead .sum{margin-left:auto;color:var(--muted);font-size:14px}
+.dayhead .sum b{color:var(--ink)}
+.sheetbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto;max-width:100%}
+table.sheet{border-collapse:collapse;width:100%;min-width:1080px;font-size:14px}
+.sheet th,.sheet td{border:1px solid var(--line);padding:0 8px;height:40px;text-align:center;white-space:nowrap}
+.sheet thead th{font-size:12px;font-weight:700;letter-spacing:.02em;line-height:1.15;padding:6px 6px;vertical-align:bottom}
+.sheet thead th .ru{display:block;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:2px}
+.sheet td.room{font-weight:700}
+.sheet td.guest{text-align:left;min-width:170px}
+.sheet td.guest button{border:0;background:none;padding:0;cursor:pointer;text-align:left;font-weight:600}
+.sheet td.guest button:hover{text-decoration:underline}
+.sheet td.guest .add{color:var(--muted);font-weight:400}
+.sheet td.calc{background:var(--mark);color:var(--mark-ink);font-weight:600}
+.sheet td.neg{color:var(--danger)}
+.sheet td.pay{padding:0}
+.sheet td.pay input{width:100%;min-width:92px;height:39px;border:0;background:transparent;text-align:right;padding:0 8px}
+.sheet td.pay input:focus{background:var(--line2);outline:2px solid var(--focus);outline-offset:-2px}
+.sheet tfoot td{font-weight:700;border-top:2px solid var(--muted)}
+.sheet tfoot td.lbl{text-align:right}
+.num{text-align:right!important}
+.printtitle{display:none}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--ink);width:min(460px,calc(100vw - 24px));box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(10,20,28,.45)}
+.dlg{padding:20px 22px 18px}
+.dlg h2{margin:0 0 14px;font-size:18px}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.f label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.f label.full{grid-column:1/-1}
+.f input,.f select,.f textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);color:var(--ink);font-size:15px;min-width:0}
+.f textarea{resize:vertical;min-height:60px}
+.calcline{grid-column:1/-1;background:var(--line2);border-radius:8px;padding:9px 12px;font-size:14px}
+.warn{grid-column:1/-1;color:var(--danger);font-size:13px;min-height:0}
+.dbtns{display:flex;gap:8px;margin-top:16px}
+.dbtns .sp{flex:1}
+.chk{flex-direction:row!important;align-items:center;gap:8px!important;color:var(--ink)!important}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.loading{padding:60px 20px;text-align:center;color:var(--muted)}
+
+@media (max-width:640px){
+  .month b{min-width:120px}
+  .brand h1{font-size:19px}
+  .f{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  :root{padding:0;--surface:#fff;--ink:#000;--line:#000;--line2:#999;--mark:#FFFF00;--mark-ink:#000;--muted:#333;--wknd:#fff}
+  body{background:#fff;color:#000;font-size:11px}
+  .noprint,.top,.tabs,.toast,.hint,dialog{display:none!important}
+  .wrap{padding:0;max-width:none}
+  .chart,.sheetbox{border:0;border-radius:0;overflow:visible;max-height:none}
+  .grid{min-width:0;grid-template-columns:44px repeat(var(--n),1fr)}
+  .h,.rn,.foot{position:static}
+  .bar{background:#ddd!important;color:#000!important;border:1px solid #000;font-size:9px;padding:0 3px;margin:4px 1px}
+  .rn,.c{height:28px}
+  table.sheet{min-width:0;font-size:11px}
+  .sheet th,.sheet td{border:1.5px solid #000;height:24px}
+  .sheet thead th .ru,.sheet td.guest .add{display:none}
+  .sheet td.pay input{height:22px;min-width:0}
+  .printtitle{display:block;font-size:14px;font-weight:700;margin:0 0 8px}
+  .dayhead .sum{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Q Pera</h1>
+      <small id="status">Bağlanıyor…</small>
+    </div>
+    <div class="month" role="group" aria-label="Ay">
+      <button class="ibtn" id="mPrev" aria-label="Önceki ay">‹</button>
+      <b id="mLabel"></b>
+      <button class="ibtn" id="mNext" aria-label="Sonraki ay">›</button>
+    </div>
+    <div class="actions">
+      <button class="btn" id="bRooms">Odalar</button>
+      <button class="btn" id="bPrint">Yazdır</button>
+      <button class="btn primary" id="bXlsx">Excel İndir</button>
+    </div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-view="chart" aria-selected="true">Doluluk Tablosu</button>
+    <button class="tab" role="tab" data-view="day" aria-selected="false">Günlük Kasa</button>
+  </nav>
+  <main id="main"><div class="loading">Veriler yükleniyor…</div></main>
+</div>
+
+<dialog id="dlgB"><form class="dlg" method="dialog" id="fB">
+  <h2 id="bTitle">Giriş Kaydı</h2>
+  <div class="f">
+    <label>Oda No<select id="bRoom"></select></label>
+    <label>Gecelik Fiyat, ₺<input id="bPrice" type="number" min="0" step="1" inputmode="decimal"></label>
+    <label class="full">Misafir Adı Soyadı<input id="bGuest" type="text" autocomplete="off" required></label>
+    <label>Giriş Tarihi<input id="bIn" type="date" required></label>
+    <label>Çıkış Tarihi<input id="bOut" type="date" required></label>
+    <label class="full">Not<textarea id="bNote" rows="2"></textarea></label>
+    <div class="calcline" id="bCalc"></div>
+    <div class="warn" id="bWarn"></div>
+  </div>
+  <div class="dbtns">
+    <button type="button" class="btn danger" id="bDel">Kaydı Sil</button>
+    <span class="sp"></span>
+    <button type="button" class="btn" id="bCancel">İptal</button>
+    <button type="submit" class="btn primary" id="bSave">Kaydet</button>
+  </div>
+</form></dialog>
+
+<dialog id="dlgR"><form class="dlg" method="dialog" id="fR">
+  <h2>Odalar ve Ayarlar</h2>
+  <div class="f">
+    <label class="full">Oda numaraları (virgülle ayırın, sırasıyla)<textarea id="rList" rows="3"></textarea></label>
+    <label class="full chk"><input type="checkbox" id="rIncl"> Çıkış günü de gece olarak sayılsın (tablodaki gibi: 01.10 → 04.10 = 4 gece)</label>
+  </div>
+  <div class="dbtns">
+    <span class="sp"></span>
+    <button type="button" class="btn" id="rCancel">İptal</button>
+    <button type="submit" class="btn primary">Kaydet</button>
+  </div>
+</form></dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+//#CORE-START
+const DAY = 864e5;
+const pad = n => String(n).padStart(2, '0');
+const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+const parseD = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const fmtD = t => new Date(t).toISOString().slice(0, 10);
+const addDays = (s, n) => fmtD(parseD(s) + n * DAY);
+const diffDays = (a, b) => Math.round((parseD(b) - parseD(a)) / DAY);
+const daysInMonth = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const dmy = s => { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; };
+const TR_MONTHS = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
+const DEFAULT_ROOMS = ['101','102','103','201','202','203','301','302','303','401','402','403','501','502','503','601','602'];
+
+function occupies(S, b, date) {
+  return date >= b.checkIn && (S.inclCheckout ? date <= b.checkOut : date < b.checkOut);
+}
+function nightsOf(S, b) {
+  return Math.max(0, diffDays(b.checkIn, b.checkOut) + (S.inclCheckout ? 1 : 0));
+}
+function byRoom(S) {
+  const m = {};
+  for (const b of Object.values(S.bookings)) (m[b.room] ||= []).push(b);
+  return m;
+}
+function bookingOn(S, idx, room, date) {
+  const list = idx[room]; if (!list) return null;
+  for (const b of list) if (occupies(S, b, date)) return b;
+  return null;
+}
+function payOf(S, room, date) {
+  const p = S.payments[date + '_' + room] || {};
+  return { cash: +p.cash || 0, card: +p.card || 0, transfer: +p.transfer || 0 };
+}
+/* Daily ledger, same logic as the sheet:
+   L (dünden devir) = yesterday's M; M (bakiye) = G - nakit - kart - havale + L */
+function ledger(S, from, to) {
+  const idx = byRoom(S);
+  let start = from;
+  for (const b of Object.values(S.bookings)) if (b.checkIn < start) start = b.checkIn;
+  for (const p of Object.values(S.payments)) if (p.date < start) start = p.date;
+  const floor = addDays(from, -1100);
+  if (start < floor) start = floor;
+  const bal = {}; S.rooms.forEach(r => bal[r] = 0);
+  const out = {};
+  for (let d = start; d <= to; d = addDays(d, 1)) {
+    const row = {};
+    for (const r of S.rooms) {
+      const b = bookingOn(S, idx, r, d);
+      const G = b ? (+b.price || 0) : 0;
+      const p = payOf(S, r, d);
+      const L = bal[r];
+      const M = G - p.cash - p.card - p.transfer + L;
+      bal[r] = M;
+      row[r] = { b, G, p, L, M };
+    }
+    if (d >= from) out[d] = row;
+  }
+  return out;
+}
+
+async function buildMonthXlsx(ExcelJS, S, y, m) {
+  const n = daysInMonth(y, m);
+  const first = ymd(y, m, 1), last = ymd(y, m, n);
+  const LG = ledger(S, first, last);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Q Pera';
+  const YEL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+  const MED = { style: 'medium' }, THIN = { style: 'thin' };
+  const FONT = { name: 'Calibri', size: 11, bold: true };
+  const CUR = '"₺"#,##0.00';
+  const BOX = { top: MED, left: MED, right: MED, bottom: MED };
+  const R0 = 7, nR = S.rooms.length, RL = R0 + nR - 1, RT = RL + 2;
+  const widths = [6, 12.86, 19, 11.57, 11, 12, 11.14, 10.29, 10.43, 13.43, 10, 15.29, 11.86];
+  let prevName = null;
+  for (let d = 1; d <= n; d++) {
+    const date = ymd(y, m, d);
+    const name = pad(d) + '.' + pad(m);
+    const ws = wb.addWorksheet(name, {
+      pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1,
+        horizontalCentered: true, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }
+    });
+    ws.columns = widths.map(w => ({ width: w }));
+    const set = (addr, val, o = {}) => {
+      const c = ws.getCell(addr);
+      if (val !== undefined && val !== null && val !== '') c.value = val;
+      c.font = FONT;
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      if (o.fill) c.fill = YEL;
+      if (o.fmt) c.numFmt = o.fmt;
+      if (o.border) c.border = o.border;
+      return c;
+    };
+    const toXDate = s => new Date(parseD(s));
+    const t2 = ws.getCell('B2'); t2.value = 'Q PERA'; t2.font = { name: 'Calibri', size: 16, bold: true };
+    set('B4', 'TARİH', { border: BOX });
+    set('C4', toXDate(date), { fill: 1, fmt: 'dd.mm.yyyy', border: BOX });
+    const top5 = { top: MED, left: MED, right: MED };
+    const h5 = { B: '', C: 'MİSAFİR', D: 'GİRİŞ', E: 'ÇIKIŞ', F: 'TOPLAM', G: 'ODA FİYATI', H: 'TOPLAM', L: '', M: '' };
+    for (const [col, v] of Object.entries(h5)) set(col + '5', v, { border: top5 });
+    ws.mergeCells('I5:K5');
+    set('I5', 'ÖDEME TİPİ', { border: BOX });
+    const h6 = { B: 'ODA NO', C: 'ADI SOYADI', D: 'TARİHİ', E: 'TARİHİ', F: 'GECELEME', G: 'TL', H: 'TUTAR',
+      I: 'NAKİT', J: 'KREDİ KARTI', K: 'HAVALE', L: 'DÜNDEN DEVİR', M: 'BAKİYE' };
+    for (const [col, v] of Object.entries(h6)) set(col + '6', v, { border: BOX });
+    const sums = { I: 0, J: 0, K: 0 };
+    S.rooms.forEach((room, i) => {
+      const r = R0 + i;
+      const e = LG[date][room];
+      const bd = { left: MED, right: MED, top: i === 0 ? MED : THIN, bottom: i === nR - 1 ? MED : THIN };
+      const bdM = { ...bd, top: i === 0 ? MED : { style: 'dashed' }, bottom: i === nR - 1 ? MED : { style: 'dashed' } };
+      const b = e.b;
+      const F = b ? nightsOf(S, b) : null;
+      const G = b && b.price !== '' && b.price != null ? +b.price : null;
+      set('B' + r, /^\d+$/.test(room) ? Number(room) : room, { border: bd });
+      set('C' + r, b ? b.guest : null, { border: bd });
+      set('D' + r, b ? toXDate(b.checkIn) : null, { border: bd, fmt: 'dd.mm.yyyy' });
+      set('E' + r, b ? toXDate(b.checkOut) : null, { border: bd, fmt: 'dd.mm.yyyy' });
+      set('F' + r, F, { border: bd });
+      set('G' + r, G, { border: bd, fmt: CUR });
+      set('H' + r, { formula: `SUM(F${r}*G${r})`, result: (F || 0) * (G || 0) }, { border: bd, fmt: CUR, fill: 1 });
+      set('I' + r, e.p.cash || null, { border: bd, fmt: CUR });
+      set('J' + r, e.p.card || null, { border: bd, fmt: CUR });
+      set('K' + r, e.p.transfer || null, { border: bd, fmt: CUR });
+      sums.I += e.p.cash; sums.J += e.p.card; sums.K += e.p.transfer;
+      set('L' + r, prevName ? { formula: `'${prevName}'!M${r}`, result: e.L } : e.L, { border: bd, fmt: CUR, fill: 1 });
+      set('M' + r, { formula: `G${r}-I${r}-J${r}-K${r}+L${r}`, result: e.M }, { border: bdM, fmt: CUR, fill: 1 });
+    });
+    set('H' + RT, 'TOPLAM');
+    for (const col of ['I', 'J', 'K'])
+      set(col + RT, { formula: `SUM(${col}${R0}:${col}${RL})`, result: sums[col] }, { border: BOX, fmt: CUR, fill: 1 });
+    ws.pageSetup.printArea = `A1:M${RT + 1}`;
+    prevName = name;
+  }
+  return wb.xlsx.writeBuffer();
+}
+//#CORE-END
+
+/* ---------------- app ---------------- */
+const S = { rooms: DEFAULT_ROOMS.slice(), inclCheckout: true, bookings: {}, payments: {} };
+const RU_MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const RU_WD = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+const today = fmtD(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()));
+const UI = { view: 'chart', y: +today.slice(0, 4), m: +today.slice(5, 7), day: today, chosenMonth: false };
+let db = null, downloads = null, mode = 'loading', canWrite = true;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = v => (Math.round(v * 100) / 100).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ₺';
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ---- storage: shared db when available, else this browser ---- */
+const LS = 'hotel-journal-v1';
+function loadLocal() {
+  try { const raw = localStorage.getItem(LS); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) {}
+}
+function saveLocal() {
+  try { localStorage.setItem(LS, JSON.stringify({ rooms: S.rooms, inclCheckout: S.inclCheckout, bookings: S.bookings, payments: S.payments })); } catch (e) {}
+}
+async function writeDoc(path, data) {
+  if (mode !== 'db') { saveLocal(); return; }
+  try { await db.doc(path).set(data); }
+  catch (e) { handleWriteErr(e); }
+}
+async function deleteDoc(path) {
+  if (mode !== 'db') { saveLocal(); return; }
+  try { await db.doc(path).delete(); }
+  catch (e) { handleWriteErr(e); }
+}
+function handleWriteErr(e) {
+  if (e && e.code === 'invalid_argument') { canWrite = false; toast('Bu kayıtları değiştirme yetkiniz yok'); }
+  else if (e && e.code === 'quota_exceeded') toast('Depolama dolu — değişiklik kaydedilmedi');
+  else toast('Kaydedilemedi. Bağlantıyı kontrol edip tekrar deneyin');
+}
+
+async function initStore() {
+  if (window.claude && typeof window.claude.use === 'function') {
+    try { db = await window.claude.use('db'); } catch (e) { db = null; }
+    try { downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; }
+    try {
+      const user = await window.claude.use('user');
+      if (user && typeof user.can === 'function') { const c = await user.can('data.write'); if (c === false) canWrite = false; }
+    } catch (e) {}
+  }
+  if (db) {
+    mode = 'db';
+    $('status').textContent = canWrite ? 'Oda Takip · Ortak kayıt — bağlantıya sahip herkes değişiklikleri görür' : 'Oda Takip · Sadece görüntüleme';
+    let got = 0; const ready = () => { if (++got >= 3) { pickMonth(); render(); } else if (got > 3) render(); };
+    db.doc('config/hotel').onSnapshot(s => {
+      const d = s.exists ? s.data() : null;
+      if (d) { if (Array.isArray(d.rooms) && d.rooms.length) S.rooms = d.rooms.map(String); if (typeof d.inclCheckout === 'boolean') S.inclCheckout = d.inclCheckout; }
+      got >= 3 ? render() : ready();
+    }, onSubErr);
+    db.collection('bookings').onSnapshot(s => {
+      const o = {}; s.docs.forEach(d => { const v = d.data(); if (v) o[d.id] = { ...v, id: d.id }; }); S.bookings = o;
+      got >= 3 ? render() : ready();
+    }, onSubErr);
+    db.collection('payments').onSnapshot(s => {
+      const o = {}; s.docs.forEach(d => { const v = d.data(); if (v) o[d.id] = v; }); S.payments = o;
+      got >= 3 ? render() : ready();
+    }, onSubErr);
+  } else {
+    mode = 'local';
+    loadLocal();
+    $('status').textContent = 'Oda Takip · Veriler bu tarayıcıda saklanıyor';
+    pickMonth(); render();
+  }
+}
+function onSubErr() { $('status').textContent = 'Bağlantı koptu — sayfayı yenileyin'; }
+
+function pickMonth() {
+  if (UI.chosenMonth) return;
+  const has = (y, m) => Object.values(S.bookings).some(b => b.checkIn.slice(0, 7) <= `${y}-${pad(m)}` && b.checkOut.slice(0, 7) >= `${y}-${pad(m)}`);
+  const ny = UI.m === 12 ? UI.y + 1 : UI.y, nm = UI.m === 12 ? 1 : UI.m + 1;
+  if (!has(UI.y, UI.m) && has(ny, nm)) { UI.y = ny; UI.m = nm; UI.day = ymd(ny, nm, 1); }
+}
+
+/* ---- render ---- */
+function render() {
+  $('mLabel').textContent = `${RU_MONTHS[UI.m - 1]} ${UI.y}`;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === UI.view)));
+  if (UI.view === 'chart') renderChart(); else renderDay();
+}
+
+function renderChart() {
+  const n = daysInMonth(UI.y, UI.m);
+  const first = ymd(UI.y, UI.m, 1), last = ymd(UI.y, UI.m, n);
+  const idx = byRoom(S);
+  const h = [];
+  h.push(`<div class="printtitle">Q PERA — Doluluk Tablosu — ${RU_MONTHS[UI.m - 1]} ${UI.y}</div>`);
+  h.push(`<div class="chart"><div class="grid" style="--n:${n}">`);
+  h.push(`<div class="h corner" style="grid-row:1;grid-column:1">Oda</div>`);
+  const dates = [];
+  for (let d = 1; d <= n; d++) {
+    const ds = ymd(UI.y, UI.m, d); dates.push(ds);
+    const wd = new Date(parseD(ds)).getUTCDay();
+    const cls = (wd === 0 || wd === 6 ? ' wk' : '') + (ds === today ? ' today' : '');
+    h.push(`<div class="h${cls}" style="grid-row:1;grid-column:${d + 1}"><b>${d}</b>${RU_WD[wd]}</div>`);
+  }
+  let prevFloor = null;
+  S.rooms.forEach((room, i) => {
+    const row = i + 2;
+    const floor = room.length > 2 ? room.slice(0, -2) : room;
+    const fcls = prevFloor !== null && floor !== prevFloor ? ' floor' : '';
+    prevFloor = floor;
+    h.push(`<div class="rn${fcls}" style="grid-row:${row}">${esc(room)}</div>`);
+    dates.forEach((ds, k) => {
+      const wd = new Date(parseD(ds)).getUTCDay();
+      const cls = (wd === 0 || wd === 6 ? ' wk' : '') + (ds === today ? ' today' : '') + fcls;
+      h.push(`<button class="c${cls}" style="grid-row:${row};grid-column:${k + 2}" data-room="${esc(room)}" data-date="${ds}" aria-label="Oda ${esc(room)}, ${dmy(ds)}: boş"></button>`);
+    });
+    for (const b of idx[room] || []) {
+      const lastNight = S.inclCheckout ? b.checkOut : addDays(b.checkOut, -1);
+      if (lastNight < first || b.checkIn > last || lastNight < b.checkIn) continue;
+      const s = b.checkIn < first ? first : b.checkIn;
+      const e = lastNight > last ? last : lastNight;
+      const c1 = +s.slice(8) + 1, span = diffDays(s, e) + 1;
+      const cls = (b.checkIn < first ? ' cl' : '') + (lastNight > last ? ' cr' : '');
+      const title = `${b.guest} · ${dmy(b.checkIn)} – ${dmy(b.checkOut)} · ${nightsOf(S, b)} gece`;
+      h.push(`<button class="bar${cls}" style="grid-row:${row};grid-column:${c1} / span ${span}" data-id="${esc(b.id)}" title="${esc(title)}"><span>${esc(b.guest)}</span>${span > 2 && b.price ? `<i>${esc(b.price)} ₺</i>` : ''}</button>`);
+    }
+  });
+  const fr = S.rooms.length + 2;
+  h.push(`<div class="foot corner" style="grid-row:${fr};grid-column:1">Dolu</div>`);
+  dates.forEach((ds, k) => {
+    let c = 0; for (const r of S.rooms) if (bookingOn(S, idx, r, ds)) c++;
+    h.push(`<div class="foot" style="grid-row:${fr};grid-column:${k + 2}"><b>${c}</b>/${S.rooms.length}</div>`);
+  });
+  h.push(`</div></div>`);
+  h.push(`<p class="hint">Oda girişi için boş bir kutuya tıklayın. Değiştirmek veya silmek için misafir şeridine tıklayın. Ödemeler «Günlük Kasa» sekmesinden girilir.</p>`);
+  $('main').innerHTML = h.join('');
+}
+
+function renderDay() {
+  if (UI.day.slice(0, 7) !== `${UI.y}-${pad(UI.m)}`) UI.day = ymd(UI.y, UI.m, 1);
+  const ds = UI.day;
+  const LG = ledger(S, ds, ds)[ds];
+  const t = { cash: 0, card: 0, transfer: 0, M: 0 };
+  let occ = 0;
+  const rows = S.rooms.map(room => {
+    const e = LG[room]; const b = e.b;
+    if (b) occ++;
+    t.cash += e.p.cash; t.card += e.p.card; t.transfer += e.p.transfer; t.M += e.M;
+    const F = b ? nightsOf(S, b) : '';
+    const G = b && b.price ? +b.price : 0;
+    const inp = (k, v) => `<td class="pay"><input type="number" min="0" step="any" inputmode="decimal" data-room="${esc(room)}" data-k="${k}" value="${v || ''}" aria-label="${k} ${esc(room)}" ${canWrite ? '' : 'disabled'}></td>`;
+    return `<tr>
+      <td class="room">${esc(room)}</td>
+      <td class="guest">${b ? `<button data-id="${esc(b.id)}">${esc(b.guest)}</button>` : `<button class="add" data-new="${esc(room)}">+ giriş yap</button>`}</td>
+      <td>${b ? dmy(b.checkIn) : ''}</td>
+      <td>${b ? dmy(b.checkOut) : ''}</td>
+      <td>${F}</td>
+      <td class="num">${b && b.price ? money(G) : ''}</td>
+      <td class="calc num">${b ? money((F || 0) * G) : ''}</td>
+      ${inp('cash', e.p.cash)}${inp('card', e.p.card)}${inp('transfer', e.p.transfer)}
+      <td class="calc num">${e.L ? money(e.L) : ''}</td>
+      <td class="calc num${e.M < 0 ? ' neg' : ''}">${e.M ? money(e.M) : ''}</td>
+    </tr>`;
+  }).join('');
+  $('main').innerHTML = `
+  <div class="dayhead">
+    <button class="ibtn noprint" id="dPrev" aria-label="Önceki gün">‹</button>
+    <input type="date" id="dPick" value="${ds}" class="noprint" aria-label="Tarih">
+    <button class="ibtn noprint" id="dNext" aria-label="Sonraki gün">›</button>
+    <div class="printtitle">Q PERA — TARİH: ${dmy(ds)}</div>
+    <div class="sum">Dolu oda: <b>${occ}</b> / ${S.rooms.length} · Kasa: <b>${money(t.cash + t.card + t.transfer)}</b></div>
+  </div>
+  <div class="sheetbox"><table class="sheet">
+    <thead>
+      <tr>
+        <th>ODA NO</th><th>MİSAFİR ADI SOYADI</th>
+        <th>GİRİŞ TARİHİ</th><th>ÇIKIŞ TARİHİ</th>
+        <th>TOPLAM GECELEME</th><th>ODA FİYATI TL</th>
+        <th>TOPLAM TUTAR</th><th>NAKİT</th>
+        <th>KREDİ KARTI</th><th>HAVALE</th>
+        <th>DÜNDEN DEVİR</th><th>BAKİYE</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td colspan="7" class="lbl">TOPLAM</td>
+      <td class="calc num">${money(t.cash)}</td><td class="calc num">${money(t.card)}</td><td class="calc num">${money(t.transfer)}</td>
+      <td></td><td class="num">${money(t.M)}</td>
+    </tr></tfoot>
+  </table></div>
+  <p class="hint">Bakiye = oda fiyatı − günün ödemeleri + dünden devir (Excel tablosundaki gibi). Eksi bakiye, misafirin peşin ödediğini gösterir.</p>`;
+}
+
+/* ---- events ---- */
+document.querySelector('.tabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab'); if (!t) return;
+  UI.view = t.dataset.view; render();
+});
+function shiftMonth(k) {
+  let m = UI.m + k, y = UI.y;
+  if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; }
+  UI.y = y; UI.m = m; UI.chosenMonth = true;
+  UI.day = (today.slice(0, 7) === `${y}-${pad(m)}`) ? today : ymd(y, m, 1);
+  render();
+}
+$('mPrev').onclick = () => shiftMonth(-1);
+$('mNext').onclick = () => shiftMonth(1);
+
+$('main').addEventListener('click', e => {
+  const bar = e.target.closest('[data-id]');
+  if (bar) return openBooking(S.bookings[bar.dataset.id]);
+  const cell = e.target.closest('.c');
+  if (cell) return openBooking(null, cell.dataset.room, cell.dataset.date);
+  const add = e.target.closest('[data-new]');
+  if (add) return openBooking(null, add.dataset.new, UI.day);
+  if (e.target.id === 'dPrev' || e.target.id === 'dNext') setDay(addDays(UI.day, e.target.id === 'dPrev' ? -1 : 1));
+});
+$('main').addEventListener('change', e => {
+  if (e.target.id === 'dPick' && e.target.value) return setDay(e.target.value);
+  const inp = e.target.closest('td.pay input'); if (!inp) return;
+  if (!canWrite) return;
+  const room = inp.dataset.room, key = UI.day + '_' + room;
+  const cur = { ...payOf(S, room, UI.day) };
+  const v = parseFloat(String(inp.value).replace(',', '.'));
+  cur[inp.dataset.k] = isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0;
+  if (!cur.cash && !cur.card && !cur.transfer) { delete S.payments[key]; deleteDoc('payments/' + key); }
+  else { const doc = { date: UI.day, room, ...cur }; S.payments[key] = doc; writeDoc('payments/' + key, doc); }
+  const focusRoom = room, focusK = inp.dataset.k;
+  renderDay();
+  const next = document.querySelector(`td.pay input[data-room="${CSS.escape(focusRoom)}"][data-k="${focusK}"]`);
+  if (next && document.activeElement === document.body) next.focus();
+});
+function setDay(d) {
+  UI.day = d; UI.y = +d.slice(0, 4); UI.m = +d.slice(5, 7); UI.chosenMonth = true; render();
+}
+
+/* ---- booking dialog ---- */
+let editing = null;
+function openBooking(b, room, date) {
+  if (!canWrite) { if (b) toast(`${b.guest}: ${dmy(b.checkIn)} – ${dmy(b.checkOut)}`); return; }
+  editing = b ? b.id : null;
+  $('bTitle').textContent = b ? `Oda ${b.room}` : 'Giriş Kaydı';
+  $('bRoom').innerHTML = S.rooms.map(r => `<option ${r === (b ? b.room : room) ? 'selected' : ''}>${esc(r)}</option>`).join('');
+  $('bGuest').value = b ? b.guest : '';
+  $('bIn').value = b ? b.checkIn : date;
+  $('bOut').value = b ? b.checkOut : addDays(date, 1);
+  $('bPrice').value = b ? (b.price ?? '') : '';
+  $('bNote').value = b ? (b.note || '') : '';
+  $('bDel').style.display = b ? '' : 'none';
+  updCalc();
+  $('dlgB').showModal();
+  setTimeout(() => $('bGuest').focus(), 30);
+}
+function formB() {
+  return { room: $('bRoom').value, guest: $('bGuest').value.trim(), checkIn: $('bIn').value, checkOut: $('bOut').value,
+    price: $('bPrice').value === '' ? '' : +$('bPrice').value, note: $('bNote').value.trim() };
+}
+function updCalc() {
+  const f = formB();
+  let warn = '';
+  if (f.checkIn && f.checkOut) {
+    const nts = nightsOf(S, f);
+    $('bCalc').innerHTML = nts > 0 ? `Gece: <b>${nts}</b> · Toplam: <b>${money(nts * (+f.price || 0))}</b>` : 'Tarihleri kontrol edin';
+    const clash = Object.values(S.bookings).find(o => o.id !== editing && o.room === f.room &&
+      (S.inclCheckout ? (f.checkIn <= o.checkOut && o.checkIn <= f.checkOut) : (f.checkIn < o.checkOut && o.checkIn < f.checkOut)));
+    if (clash) warn = `Oda ${f.room} bu tarihlerde dolu: ${clash.guest} (${dmy(clash.checkIn)} – ${dmy(clash.checkOut)})`;
+  } else $('bCalc').textContent = '';
+  $('bWarn').textContent = warn;
+}
+['bRoom', 'bIn', 'bOut', 'bPrice'].forEach(id => $(id).addEventListener('input', updCalc));
+$('bIn').addEventListener('change', () => { if ($('bOut').value <= $('bIn').value && !S.inclCheckout) $('bOut').value = addDays($('bIn').value, 1); if ($('bOut').value < $('bIn').value) $('bOut').value = $('bIn').value; updCalc(); });
+$('bCancel').onclick = () => $('dlgB').close();
+$('fB').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = formB();
+  if (!f.guest) { $('bWarn').textContent = 'Misafir adını girin'; return; }
+  if (nightsOf(S, f) < 1) { $('bWarn').textContent = 'Çıkış tarihi giriş tarihinden sonra olmalı'; return; }
+  const id = editing || ('b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+  const doc = { ...f, id };
+  S.bookings[id] = doc;
+  writeDoc('bookings/' + id, doc);
+  $('dlgB').close();
+  render();
+  toast(editing ? 'Değişiklikler kaydedildi' : `Oda ${f.room} dolu olarak işaretlendi`);
+});
+$('bDel').onclick = () => {
+  if (!editing) return;
+  const b = S.bookings[editing];
+  if (!confirm(`${b.room} numaralı odadaki «${b.guest}» kaydı silinsin mi? Günlük ödemeler kalır.`)) return;
+  delete S.bookings[editing];
+  deleteDoc('bookings/' + editing);
+  $('dlgB').close(); render(); toast('Kayıt silindi');
+};
+
+/* ---- rooms dialog ---- */
+$('bRooms').onclick = () => {
+  if (!canWrite) return toast('Sadece görüntüleme');
+  $('rList').value = S.rooms.join(', ');
+  $('rIncl').checked = S.inclCheckout;
+  $('dlgR').showModal();
+};
+$('rCancel').onclick = () => $('dlgR').close();
+$('fR').addEventListener('submit', e => {
+  e.preventDefault();
+  const list = $('rList').value.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+  const uniq = [...new Set(list)];
+  if (!uniq.length) return toast('En az bir oda ekleyin');
+  S.rooms = uniq; S.inclCheckout = $('rIncl').checked;
+  writeDoc('config/hotel', { rooms: S.rooms, inclCheckout: S.inclCheckout });
+  $('dlgR').close(); render(); toast('Ayarlar kaydedildi');
+});
+
+/* ---- print & excel ---- */
+$('bPrint').onclick = () => {
+  try { window.print(); } catch (e) { toast('Yazdırma burada kullanılamıyor — Excel dosyasını indirip oradan yazdırın'); }
+};
+$('bXlsx').onclick = async () => {
+  if (!window.ExcelJS) return toast('Excel modülü yüklenemedi. Sayfayı yenileyin');
+  const btn = $('bXlsx'); btn.disabled = true; const old = btn.textContent; btn.textContent = 'Dosya hazırlanıyor…';
+  try {
+    const buf = await buildMonthXlsx(window.ExcelJS, S, UI.y, UI.m);
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const filename = `Q_PERA_${TR_MONTHS[UI.m - 1]}_${UI.y}.xlsx`;
+    if (downloads) {
+      try { await downloads.save({ filename, data: blob }); }
+      catch (e) {
+        if (e && e.code === 'declined') {}
+        else if (e && e.code === 'rate_limited') toast('Birkaç saniye bekleyip tekrar deneyin');
+        else toast('Dosya kaydedilemedi');
+      }
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+  } catch (e) { console.error(e); toast('Dosya oluşturulurken hata oluştu'); }
+  finally { btn.disabled = false; btn.textContent = old; }
+};
+
+initStore();
+</script>
+</body>
+</html>
