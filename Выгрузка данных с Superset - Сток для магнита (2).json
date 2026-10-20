@@ -1,0 +1,483 @@
+{
+  "name": "Выгрузка данных с Superset - Сток для магнита",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        80
+      ],
+      "id": "12484283-6d7d-4268-8929-16ec95eb6954",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        80,
+        80
+      ],
+      "id": "3cc1ae0e-fc11-47cd-acd1-6d841d8c47bd",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        352,
+        80
+      ],
+      "id": "2f61dea8-9198-4bad-a0ed-1b9425dbf52c",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "content": "Получение токена по логину и паролю",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "26fa8552-9901-4938-9b32-facc16bcf249",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Получение дополнительных данных (данные сесси) для подключения",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        288,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "36c94897-2809-4637-b8d9-b122782e5a13",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */5 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        256
+      ],
+      "id": "5486e8f8-2f73-431a-897a-51868f387b6d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/127/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 6, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"zone_prefix\",\n        \"Внешний ID\",\n        \"SKU WMS ID\",\n        \"barcodes\",\n        \"name\",\n        { \"expressionType\": \"SQL\", \"label\": \"ОСГ\", \"sqlExpression\": \"EXTRACT(DAY FROM ОСГ)\" },\n        \"amount_in_location\",\n        { \"expressionType\": \"SQL\", \"label\": \"reserved\", \"sqlExpression\": \"amount_in_location - amount_available\" },\n        \"amount_available\"\n      ],\n      \"filters\": [ { \"col\": \"partner_id\", \"op\": \"IN\", \"val\": [2] } ],\n      \"extras\": { \"where\": \"amount_in_location <> 0 OR (amount_in_location - amount_available) <> 0\" },\n      \"orderby\": [],\n      \"row_limit\": 100000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"results\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        576,
+        80
+      ],
+      "id": "043c58c0-8e55-4349-93b2-7f77c0a528e9",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw  = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\n// barcodes может прийти массивом → склеиваем в строку\nconst asText = (v) => Array.isArray(v) ? v.join(', ') : v;\n\nreturn [{ json: { rows: rows.map(r => ({\n  \"zone_prefix\":        r[\"zone_prefix\"] ?? null,\n  \"Внешний ID\":         r[\"Внешний ID\"] ?? null,\n  \"SKU WMS ID\":         r[\"SKU WMS ID\"] ?? null,\n  \"barcodes\":           asText(r[\"barcodes\"]) ?? null,\n  \"name\":               r[\"name\"] ?? null,\n  \"ОСГ\":                r[\"ОСГ\"] ?? null,\n  \"amount_in_location\": r[\"amount_in_location\"] ?? null,\n  \"reserved\":           r[\"reserved\"] ?? null,\n  \"amount_available\":   r[\"amount_available\"] ?? null,\n})) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        80
+      ],
+      "id": "b32a1ba1-2ad2-4da1-8797-6d67a154f244",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.rows.map(row => ({ json: row }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        80
+      ],
+      "id": "f3aad445-c7b7-4bc5-a166-33dd418857e6",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio",
+          "mode": "list",
+          "cachedResultName": "Выгрузка cтока для Магнита",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio/edit#gid=0"
+        },
+        "keepFirstRow": "={{ true }}"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        752,
+        80
+      ],
+      "id": "9ddbcdef-f7ec-43ab-b38d-f7cd09d31812",
+      "name": "Clear sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "YF9QzZschT9QHtl4",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio",
+          "mode": "list",
+          "cachedResultName": "Выгрузка cтока для Магнита",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XHVRXchLTB0BLhusmE_ia8llzuSFJI6PMi51kDg3Qio/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "zone_prefix": "={{ $json['zone_prefix'] }}",
+            "SKU WMS ID": "={{ $json['SKU WMS ID'] }}",
+            "barcodes": "={{ $json['barcodes'] }}",
+            "name": "={{ $json['name'] }}",
+            "ОСГ": "={{ $json['ОСГ'] }}",
+            "amount_in_location": "={{ $json['amount_in_location'] }}",
+            "reserved": "={{ $json['reserved'] }}",
+            "amount_available": "={{ $json['amount_available'] }}",
+            "Внешний ID": "={{ $json['Внешний ID'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "zone_prefix",
+              "displayName": "zone_prefix",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Внешний ID",
+              "displayName": "Внешний ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "SKU WMS ID",
+              "displayName": "SKU WMS ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "barcodes",
+              "displayName": "barcodes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ОСГ",
+              "displayName": "ОСГ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount_in_location",
+              "displayName": "amount_in_location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reserved",
+              "displayName": "reserved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount_available",
+              "displayName": "amount_available",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1392,
+        80
+      ],
+      "id": "13ce3bb0-a5bd-4200-9365-f5ef54c9d974",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "YF9QzZschT9QHtl4",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "6e401302-e507-4fab-a8b7-72ddbedce9c3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "L0V8d9FDcdkupFK3",
+  "tags": []
+}
