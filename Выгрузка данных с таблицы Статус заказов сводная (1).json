@@ -1,0 +1,489 @@
+{
+  "name": "Выгрузка данных с таблицы Статус заказов сводная",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        80
+      ],
+      "id": "f8b83650-5700-4994-9b67-545fe582519a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        80,
+        80
+      ],
+      "id": "9e80facf-0c88-438e-9865-2c0d04f46fed",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        320,
+        80
+      ],
+      "id": "99d44e1c-ceb7-4570-9cd6-0fac78440983",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "content": "Получение токена по логину и паролю",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "e08938ad-3aa3-4cad-8ee6-cb9880148079",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Получение дополнительных данных (данные сесси) для подключения",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        256,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "bfe99799-4724-43d9-89bf-a67adee4753e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */5 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        304
+      ],
+      "id": "d57aa16e-1330-4cc3-b884-491544d7bc51",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/109/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": {\n    \"id\": 54,\n    \"type\": \"table\"\n  },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"Номер_заказа\",\n        \"id_заказа\",\n        \"Точка_доставки\",\n        \"Статус_заказа\",\n        \"Дата_создания\",\n        \"Дата_последнего_обновления\",\n        \"Дата_доставки\"\n      ],\n      \"metrics\": [\n        {\n          \"expressionType\": \"SIMPLE\",\n          \"column\": {\n            \"column_name\": \"Товаров_зарезервировано\",\n            \"type\": \"LONGINTEGER\"\n          },\n          \"aggregate\": \"SUM\",\n          \"label\": \"SUM(Товаров_зарезервировано)\"\n        }\n      ],\n      \"row_limit\": 50000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"results\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        576,
+        80
+      ],
+      "id": "3e7329ff-aacd-4b50-9438-c77b9bb23b6d",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw  = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\nconst snapshot = new Date().toISOString().slice(0, 10); // дата запуска\n\n// даты приходят epoch-мс → приводим к 'YYYY-MM-DD'\nconst fmt = (v) => {\n  if (v === null || v === undefined || v === '') return null;\n  if (typeof v === 'number' || /^\\d{10,13}$/.test(String(v))) {\n    return new Date(Number(v)).toISOString().slice(0, 10);\n  }\n  return v;\n};\n\nreturn [{ json: { snapshot, rows: rows.map(r => ({\n  \"Номер_заказа\":               r[\"Номер_заказа\"] ?? null,\n  \"id_заказа\":                  r[\"id_заказа\"] != null ? String(r[\"id_заказа\"]) : null,\n  \"Точка_доставки\":             r[\"Точка_доставки\"] != null ? String(r[\"Точка_доставки\"]) : null,\n  \"Статус_заказа\":              r[\"Статус_заказа\"] ?? null,\n  \"Дата_создания\":              fmt(r[\"Дата_создания\"]),\n  \"Дата_последнего_обновления\": fmt(r[\"Дата_последнего_обновления\"]),\n  \"Дата_доставки\":              fmt(r[\"Дата_доставки\"]),\n  \"Товаров_зарезервировано\":    r[\"SUM(Товаров_зарезервировано)\"] ?? null,\n})) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        80
+      ],
+      "id": "8f8a047a-a964-409f-b53e-d2cd95a61070",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.rows.map(row => ({\n  json: row\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        80
+      ],
+      "id": "c8ae33fb-1110-4f4c-a028-219b30533b42",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1CzrwJIUrtqpnqIEEhTOFlGvriZpck1YbwVJu_tJV04c",
+          "mode": "list",
+          "cachedResultName": " Выгрузка данных с таблицы Статус заказов сводная",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CzrwJIUrtqpnqIEEhTOFlGvriZpck1YbwVJu_tJV04c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CzrwJIUrtqpnqIEEhTOFlGvriZpck1YbwVJu_tJV04c/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Номер_заказа": "={{ $json['Номер_заказа'] }}",
+            "id_заказа": "={{ $json['id_заказа'] }}",
+            "Точка_доставки": "={{ $json['Точка_доставки'] }}",
+            "Статус_заказа": "={{ $json['Статус_заказа'] }}",
+            "Дата_создания": "={{ $json['Дата_создания'] }}",
+            "Дата_последнего_обновления": "={{ $json['Дата_последнего_обновления'] }}",
+            "Дата_доставки": "={{ $json['Дата_доставки'] }}",
+            "Товаров_зарезервировано": "={{ $json['Товаров_зарезервировано'] }}"
+          },
+          "matchingColumns": [
+            "id_заказа"
+          ],
+          "schema": [
+            {
+              "id": "Номер_заказа",
+              "displayName": "Номер_заказа",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_заказа",
+              "displayName": "id_заказа",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Точка_доставки",
+              "displayName": "Точка_доставки",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Статус_заказа",
+              "displayName": "Статус_заказа",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Дата_создания",
+              "displayName": "Дата_создания",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Дата_последнего_обновления",
+              "displayName": "Дата_последнего_обновления",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Дата_доставки",
+              "displayName": "Дата_доставки",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Товаров_зарезервировано",
+              "displayName": "Товаров_зарезервировано",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        80
+      ],
+      "id": "e3c50e4e-4c8e-418a-9427-ffc36cbe13ee",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "YF9QzZschT9QHtl4",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Получение данных",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        512,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "a972dc42-147f-408d-bbef-0d802f9924b3",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Обработка данных",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        768,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "05783fea-7245-4ac9-b459-fb47890ce6b0",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "Обработка данных",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1024,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "ce01048c-4663-47dd-b547-7298a2f4c2e4",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "Загрузка данных в Эксель",
+        "height": 240,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1280,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "0a748fe2-a3f3-4bc8-8cbb-08edd7afaeca",
+      "name": "Sticky Note5"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "5493f5bc-2224-4f7b-8c2c-02d56d2abda6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "cXlHI2rmBKwtym4U",
+  "tags": []
+}
