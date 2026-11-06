@@ -1,0 +1,266 @@
+{
+  "name": "Получение данных Superset Информация по товарам",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5c9935bf-823b-4c54-9299-32fdb3a6f001",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        0
+      ],
+      "id": "b6581de6-35e5-4fb0-b8ed-0500dae70fd9",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/43/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 41, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"partner_id\", \"SKU WMS ID\", \"Внешний ID\", \"name\",\n        \"barcode\", \"is_bundle\", \"has_mark\", \"Кол-во в бандле\"\n      ],\n      \"row_limit\": 100000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"full\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        0
+      ],
+      "id": "720e92b4-1cdf-4e39-9dc9-e427a437821b",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        480,
+        0
+      ],
+      "id": "abfbaceb-b457-4768-b824-ce584997d464",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\nconst clean = rows.map(r => ({\n  partner_id:    r[\"partner_id\"],\n  sku_wms_id:    String(r[\"SKU WMS ID\"]),\n  external_id:   r[\"Внешний ID\"] ?? null,\n  name:          r[\"name\"] ?? null,\n  barcode:       r[\"barcode\"] != null ? String(r[\"barcode\"]) : null,\n  is_bundle:     r[\"is_bundle\"] ?? null,\n  has_mark:      r[\"has_mark\"] ?? null,\n  bundle_amount: r[\"Кол-во в бандле\"] ?? null,\n}));\n\nreturn [{ json: { rows: clean } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        0
+      ],
+      "id": "c93370a9-9772-4d99-9d26-1c3ff414a114",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 */4 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        176
+      ],
+      "id": "5da9d204-a70e-4cae-9fa3-822f17e4d6a2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.superset_sku\n  (partner_id, sku_wms_id, external_id, name, barcode, is_bundle, has_mark, bundle_amount)\nselect\n  (r->>'partner_id')::int,\n  r->>'sku_wms_id',\n  r->>'external_id',\n  r->>'name',\n  r->>'barcode',\n  (r->>'is_bundle')::boolean,\n  (r->>'has_mark')::boolean,\n  nullif(r->>'bundle_amount','')::int\nfrom jsonb_array_elements($1::jsonb) as r\non conflict (partner_id, sku_wms_id, barcode) do nothing;",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json.rows) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1216,
+        0
+      ],
+      "id": "58b52ea6-1f28-431d-8658-b480032c57fc",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "EULjaAtIYE1HGNrs",
+          "name": "Polina cridentials"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "b650e7e7-30ba-451e-ba12-60662a7d892b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "NP8FH67aF7yiepkL",
+  "tags": []
+}

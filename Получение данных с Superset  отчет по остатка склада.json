@@ -1,0 +1,266 @@
+{
+  "name": "Получение данных с Superset  отчет по остатка склада",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "217eb35e-251b-4aaf-8dd4-0b78098a0069",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        0
+      ],
+      "id": "97d0add3-40a1-4b14-bd30-d77cccbb281b",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        0
+      ],
+      "id": "65b2467a-e7eb-42e6-bf41-993c614f6ef4",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 59 23 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        176
+      ],
+      "id": "6134632c-cc4e-41ab-8661-19937f35f445",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/42/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 6, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"original_invoice_number\",\n        \"zone_prefix\",\n        \"cell_barcode\",\n        \"barcode\",\n        \"SKU WMS ID\",\n        \"name\",\n        \"barcodes\",\n        \"width\",\n        \"length\",\n        \"height\",\n        \"amount_available\",\n        \"amount_in_location\",\n        \"amount_incident\",\n        {\n          \"label\": \"ОСГ\",\n          \"expressionType\": \"SQL\",\n          \"sqlExpression\": \"ОСГ\"\n        },\n        \"partner_id\",\n        \"warehouse_id\"\n      ],\n      \"row_limit\": 100000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"results\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        0
+      ],
+      "id": "00b44bc5-5b46-4391-b4e2-db9111a1c6b0",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\nconst snapshot = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' — дата запуска\n\nreturn [{ json: { snapshot, rows: rows.map(r => ({\n  original_invoice_number: r[\"original_invoice_number\"],\n  zone_prefix:             r[\"zone_prefix\"] ?? null,\n  cell_barcode:            r[\"cell_barcode\"],\n  barcode:                 r[\"barcode\"] ?? null,\n  sku_wms_id:              String(r[\"SKU WMS ID\"]),\n  name:                    r[\"name\"] ?? null,\n  barcodes:                r[\"barcodes\"] ?? null,\n  width:                   r[\"width\"] ?? null,\n  length:                  r[\"length\"] ?? null,\n  height:                  r[\"height\"] ?? null,\n  amount_available:        r[\"amount_available\"] ?? null,\n  amount_in_location:      r[\"amount_in_location\"] ?? null,\n  amount_incident:         r[\"amount_incident\"] ?? null,\n  osg:                     r[\"ОСГ\"] ?? null,\n  partner_id:              r[\"partner_id\"] ?? null,\n  warehouse_id:            r[\"warehouse_id\"] ?? null,\n})) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "4319739a-7af3-4308-af7a-0570024b2d7e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.stock_invoice_sku_cell\n  (snapshot_date, original_invoice_number, zone_prefix, cell_barcode, barcode, sku_wms_id, name,\n   barcodes, width, length, height, amount_available, amount_in_location,\n   amount_incident, osg, partner_id, warehouse_id)\nselect\n  ($2)::date,\n  r->>'original_invoice_number',\n  r->>'zone_prefix',\n  r->>'cell_barcode',\n  r->>'barcode',\n  r->>'sku_wms_id',\n  r->>'name',\n  r->>'barcodes',\n  nullif(r->>'width','')::int,\n  nullif(r->>'length','')::int,\n  nullif(r->>'height','')::int,\n  nullif(r->>'amount_available','')::int,\n  nullif(r->>'amount_in_location','')::int,\n  nullif(r->>'amount_incident','')::int,\n  r->>'osg',\n  nullif(r->>'partner_id','')::int,\n  nullif(r->>'warehouse_id','')::int\nfrom jsonb_array_elements($1::jsonb) as r\non conflict (snapshot_date, original_invoice_number, cell_barcode, sku_wms_id, barcode, osg) do nothing;",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json.rows) }}\n={{ $json.snapshot }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "a1c8369f-0503-44a2-b283-3805514ed950",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "EULjaAtIYE1HGNrs",
+          "name": "Polina cridentials"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "e7ba19b4-ca57-41c9-8828-7728b0d4fecd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "MUohu2CwYMCOTzBN",
+  "tags": []
+}

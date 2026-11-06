@@ -1,0 +1,266 @@
+{
+  "name": "Получение данных с Superset приемка палетов",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b943e0bc-3f8f-4d3d-9611-5816659e69f2",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"username\": \"API\",\n  \"password\": \"123456\",\n  \"provider\": \"db\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7539a53c-6c5b-4e1a-8a3a-d75617601d19",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/chart/41/data/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request').item.json.access_token }}"
+            },
+            {
+              "name": "X-CSRFToken",
+              "value": "={{ $json.body.result }}"
+            },
+            {
+              "name": "Cookie",
+              "value": "={{ $json.headers['set-cookie'][0].split(';')[0] }}"
+            },
+            {
+              "name": "Referer",
+              "value": "https://bi.dailymail-tech.uz"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"datasource\": { \"id\": 40, \"type\": \"table\" },\n  \"queries\": [\n    {\n      \"columns\": [\n        \"original_invoice_number\",\n        \"pallet_barcode\",\n        \"task_pallet_flow_type\",\n        \"status\",\n        \"barcode\",\n        \"counted_amount\",\n        \"date\"\n      ],\n      \"row_limit\": 100000\n    }\n  ],\n  \"result_format\": \"json\",\n  \"result_type\": \"full\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        0
+      ],
+      "id": "d4668953-607a-4603-a87d-19f4a7761d21",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "url": "https://bi.dailymail-tech.uz/api/v1/security/csrf_token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "lowercaseHeaders": true,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3a5fc055-ca6f-49e0-9973-dbeacdfeaf64",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode: Run Once for All Items\nconst raw = $('HTTP Request1').first().json.data;\nconst rows = JSON.parse(raw).result[0].data;\n\nconst clean = rows.map(r => ({\n  original_invoice_number: r[\"original_invoice_number\"],\n  pallet_barcode:          r[\"pallet_barcode\"] ?? null,\n  task_pallet_flow_type:   r[\"task_pallet_flow_type\"] ?? null,\n  status:                  r[\"status\"] ?? null,\n  barcode:                 r[\"barcode\"] != null ? String(r[\"barcode\"]) : null,\n  counted_amount:          r[\"counted_amount\"] ?? null,\n  doc_date:                r[\"date\"] != null\n                             ? new Date(r[\"date\"]).toISOString().slice(0, 10)\n                             : null,\n}));\n\nreturn [{ json: { rows: clean } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "4d5c4eb4-574e-49e2-b0e5-38660aa8020d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 */4 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        160
+      ],
+      "id": "7e6e5d0f-32b6-4e72-b4e8-190429352778",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.pallet_binding\n  (original_invoice_number, pallet_barcode, task_pallet_flow_type, status, barcode, counted_amount, doc_date)\nselect\n  r->>'original_invoice_number',\n  r->>'pallet_barcode',\n  r->>'task_pallet_flow_type',\n  r->>'status',\n  r->>'barcode',\n  nullif(r->>'counted_amount','')::int,\n  nullif(r->>'doc_date','')::date\nfrom jsonb_array_elements($1::jsonb) as r\non conflict (original_invoice_number, pallet_barcode, barcode) do nothing;",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json.rows) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "c2edadf5-18c6-4101-a00c-9cec4a52ba52",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "EULjaAtIYE1HGNrs",
+          "name": "Polina cridentials"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "QyevMgmearmXUqGJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "f83af016-1978-4020-beec-f4bf9c9b8310",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5ae13ca20e2c861fac4fb6f0f0274c93792fc46c7ee0d35b51ca95c38b37f4c"
+  },
+  "id": "nwWLveT0skoOYEU5",
+  "tags": []
+}
